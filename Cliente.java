@@ -4,8 +4,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.ArrayList;
 
-public class Cliente implements Acionador{
+public class Cliente {
     
     private Socket Cliente;
     private String Nome;
@@ -13,13 +14,26 @@ public class Cliente implements Acionador{
     private ObjectOutputStream Oos;
     private boolean Ok = false;
 
-    public Cliente(Socket cliente){
+    public Cliente(Socket cliente, ArrayList<String> nomes){
         this.Cliente = cliente;
         try{
             this.Ois = new ObjectInputStream(cliente.getInputStream());
             this.Oos = new ObjectOutputStream(cliente.getOutputStream());
             try{
-                this.Nome = (String) Ois.readObject();
+                this.Nome = (String) this.Ois.readObject();
+                boolean teste = true;
+                while(teste){
+                    teste = false;
+                    for(String nome:nomes) {
+                        if(nome.equalsIgnoreCase(this.Nome)){
+                            this.Oos.writeObject("outro");
+                            this.Nome = (String) this.Ois.readObject();
+                            teste = true;
+                            break;
+                        }
+                    }
+                }
+                this.Oos.writeObject("ok");
                 this.Ok = true;
             }catch(ClassNotFoundException ex){
                 System.out.println("Não foi possível obter o nome do cliente"+cliente.getInetAddress()+", fechando conexão!");
