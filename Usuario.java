@@ -158,7 +158,6 @@ public class Usuario {
                         else if(str.equals("enviando mensagem")){
                             StringBuilder sb = new StringBuilder();
                             str = (String)Ois.readObject();
-                            System.out.println(str);
                             while(!str.equals(Msg.CODIGO)) {
                                 sb.append(str);
                                 str = (String)Ois.readObject();

@@ -78,9 +78,11 @@ public class Servidor{
                             do{
                                 obj = cliente.getOis().readObject();
                             }while(!(obj instanceof String));
+                            boolean b = readMsg;
                             if(readMsg) {
                                 tempMsg = (String)obj;
-                                while(readMsg);
+                                String s = (String) tempMsg;
+                                while(readMsg) if(tempMsg.length()==0) readMsg = false;
                             }else {
                                 Actions.add(new Action((String)obj, cliente));
                             }
@@ -108,7 +110,7 @@ public class Servidor{
             @Override
             public void run(){
                 while(true){
-                    System.out.println(Actions.size());
+                    int i = Actions.size();
                     while(Actions.size() > 0){
                         Action act = Actions.get(0);
                             try{
@@ -128,24 +130,19 @@ public class Servidor{
                                     StringBuilder msg = new StringBuilder("[").append(cliente.getNome()).append("]: ");
                                     readMsg = true;
                                     cliente.getOos().writeObject("envie a mensagem");
-                                    System.out.println("Esperando msg");
-                                    while(tempMsg.length()==0){
-                                        System.out.println("temp2: "+tempMsg);
-                                    }
+                                    while(tempMsg.length()==0);
                                     String temp = tempMsg;
-                                    System.out.println("Msg chegada: "+temp);
                                     while(!temp.equals(Msg.CODIGO)) {
                                         msg.append(temp);
                                         temp = (String)cliente.getOis().readObject();
                                     }
-                                    System.out.println(msg);
-                                    tempMsg = "";
-                                    readMsg = false;
                                     for(Cliente client:Clientes){
                                         client.getOos().writeObject("enviando mensagem");
                                         client.getOos().writeObject(msg.toString());
                                         client.getOos().writeObject(Msg.CODIGO);
                                     }
+                                    tempMsg = "";
+                                    readMsg = false;
                                 }else if(act.action.equals("enviando arquivo")){
                                     new Thread(new Runnable(){
                                         final Cliente Cliente = cliente;
