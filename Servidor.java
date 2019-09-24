@@ -33,7 +33,7 @@ public class Servidor{
         Clientes = new ArrayList<>();
         Actions = new ArrayList<>();
         startServerAccept();
-        startActionsTratment();
+//        startActionsTratment();
     }
     
     private void startServerAccept(){
@@ -66,11 +66,7 @@ public class Servidor{
                 Cliente cliente = new Cliente(client, nomes);
                 if(cliente.isOk()){
                     try{
-                        for(Cliente client:Clientes) {
-                            client.getOos().writeObject("enviando mensagem");
-                            client.getOos().writeObject("* "+cliente.getNome()+" entrou no servidor! *");
-                            client.getOos().writeObject(Msg.CODIGO);
-                        }
+                        sendAll(new StringBuilder("* ").append(cliente.getNome()).append(" entrou no servidor! *").toString());
                         System.out.println("* "+cliente.getNome()+" entrou no servidor! *");
                         Clientes.add(cliente);
                         Object obj;
@@ -78,13 +74,77 @@ public class Servidor{
                             do{
                                 obj = cliente.getOis().readObject();
                             }while(!(obj instanceof String));
-                            boolean b = readMsg;
-                            if(readMsg) {
-                                tempMsg = (String)obj;
-                                String s = (String) tempMsg;
-                                while(readMsg) if(tempMsg.length()==0) readMsg = false;
-                            }else {
-                                Actions.add(new Action((String)obj, cliente));
+                            String str = (String) obj;
+                            if(str.equals("enviando mensagem")){
+                                StringBuilder msg = new StringBuilder("[").append(cliente.getNome()).append("]: ");
+                                msg.append((String) cliente.getOis().readObject());
+                                sendAll(msg.toString());
+                                System.out.println(msg.toString());
+                            }else if(str.equals("enviando arquivo")){
+                                int port = -1;
+                                StringBuilder path = new StringBuilder();
+                                final StringBuilder MSG = new StringBuilder("* ").append(cliente.getNome()).append(" enviou o arquivo: ");
+                                for(int i=1; i<101; i++){
+                                    try{
+                                        ServerSocket server = new ServerSocket(Servidor.getLocalPort()+i);
+                                        port = server.getLocalPort();
+                                        server.close();
+                                        break;
+                                    }catch(IOException ex){}
+                                }
+                                try{cliente.getOos().writeInt(port); cliente.getOos().flush(); }catch(Exception ex){}
+                                if(port>0){
+                                    final int port2 = port;
+                                    new Thread(new Runnable(){
+                                        
+                                        final int Port = port2;
+                                        final StringBuilder Path = path, MsG = MSG;
+                                        
+                                        @Override
+                                        public void run(){
+                                            ServerSocket server = null;
+                                            try{
+                                                server = new ServerSocket(Port);
+                                                Socket client = server.accept();
+                                                ObjectInputStream ois = new ObjectInputStream(client.getInputStream());
+                                                path.append(recieveFile(ois));
+                                                ois.close();
+                                                client.close();
+                                                server.close();
+                                                MsG.append(new StringBuilder(path.reverse().toString().split("\\\\")[0]).reverse());
+                                                path.reverse();
+                                                System.out.println(MsG);
+                                                sendAll(MsG.toString());
+                                            }catch(IOException ex){}
+                                            if(server != null)
+                                            for(Cliente client:Clientes){
+                                                try{
+                                                    if(!client.getNome().equals(cliente.getNome())){
+                                                        client.getOos().writeObject("enviando arquivo");
+                                                        client.getOos().writeInt(Port);
+                                                        client.getOos().flush();
+                                                        Socket Client = server.accept();
+                                                        ObjectOutputStream oos = new ObjectOutputStream(Client.getOutputStream());
+                                                        File file = new File(path.toString());
+                                                        SendFile(file, oos);
+                                                        Client.close();
+                                                    }
+                                                }catch(Exception ex){}
+                                            }
+                                            try{server.close();}catch(Exception ex){}
+                                        }
+                                        
+                                    }).start();
+                                }
+                            }else if(str.equals("saindo do servidor")){
+                                try{ cliente.getOos().close(); }catch(IOException ex){}
+                                try{ cliente.getOis().close(); }catch(IOException ex){}
+                                try{ cliente.getCliente().close(); }catch(IOException ex){}
+                                Clientes.remove(cliente);
+                                String msg = new StringBuilder("* ").append(cliente.getNome()).append(" saiu do servidor! *").toString();
+                                sendAll(msg);
+                                System.out.println(msg);
+                                break;
                             }
                         }
                     }catch(IOException | ClassNotFoundException ex){
@@ -104,107 +164,11 @@ public class Servidor{
         }).start();
     }
     
-    private void startActionsTratment(){
-        new Thread(new Runnable(){
-            
-            @Override
-            public void run(){
-                while(true){
-                    int i = Actions.size();
-                    while(Actions.size() > 0){
-                        Action act = Actions.get(0);
-                            try{
-                                final Cliente cliente = (Cliente)act.cliente;
-                                if(act.action.equals("saindo do servidor")){
-                                    cliente.getOos().writeObject("tchau");
-                                    Clientes.remove(cliente);
-                                    for(Cliente client:Clientes){
-                                        client.getOos().writeObject("enviando mensagem");
-                                        client.getOos().writeObject("* "+cliente.getNome()+" saiu do servidor *");
-                                        client.getOos().writeObject(Msg.CODIGO);
-                                    }
-                                    try{ cliente.getOos().close(); }catch(Exception ex){}
-                                    try{ cliente.getOis().close(); }catch(Exception ex){}
-                                    try{ cliente.getCliente().close(); }catch(Exception ex){}
-                                }else if(act.action.equals("enviando mensagem")){
-                                    StringBuilder msg = new StringBuilder("[").append(cliente.getNome()).append("]: ");
-                                    readMsg = true;
-                                    cliente.getOos().writeObject("envie a mensagem");
-                                    while(tempMsg.length()==0);
-                                    String temp = tempMsg;
-                                    while(!temp.equals(Msg.CODIGO)) {
-                                        msg.append(temp);
-                                        temp = (String)cliente.getOis().readObject();
-                                    }
-                                    for(Cliente client:Clientes){
-                                        client.getOos().writeObject("enviando mensagem");
-                                        client.getOos().writeObject(msg.toString());
-                                        client.getOos().writeObject(Msg.CODIGO);
-                                    }
-                                    tempMsg = "";
-                                    readMsg = false;
-                                }else if(act.action.equals("enviando arquivo")){
-                                    new Thread(new Runnable(){
-                                        final Cliente Cliente = cliente;
-                                        @Override
-                                        public void run(){
-                                            StringBuilder path = new StringBuilder();
-                                            for(int i=1; i<101; i++){
-                                                try{
-                                                    ServerSocket server = new ServerSocket(Servidor.getLocalPort()+i);
-                                                    try{Cliente.getOos().writeObject("envie o arquivo");
-                                                        Socket client = server.accept();
-                                                        ObjectInputStream ois = new ObjectInputStream(client.getInputStream());
-                                                        path.append(recieveFile(ois));
-                                                        ois.close();
-                                                        client.close();
-                                                        server.close();
-                                                    }catch(Exception ex){}
-                                                    break;
-                                                }catch(Exception ex){}
-                                            }
-                                            if(path.length()>0){
-                                                for(Cliente cliente:Clientes){
-                                                    if(!cliente.getNome().equals(Cliente.getNome())){
-                                                        for(int i=1; i<101; i++){
-                                                            try{
-                                                                ServerSocket server = new ServerSocket(Servidor.getLocalPort()+i);
-                                                                try{
-                                                                    cliente.getOos().writeObject("enviando arquivo");
-                                                                    Socket client = server.accept();
-                                                                    ObjectOutputStream oos = new ObjectOutputStream(client.getOutputStream());
-                                                                    File file = new File(path.toString());
-                                                                    SendFile(file, oos);
-                                                                    client.close();
-                                                                    server.close();
-                                                                }catch(Exception ex){}
-                                                                break;
-                                                            }catch(Exception ex){}
-                                                        }
-                                                    }
-                                                    try{
-                                                        cliente.getOos().writeObject("enviando mensagem");
-                                                        cliente.getOos().writeObject("["+Cliente.getNome()+"]: enviou o arquivo "+new StringBuilder(path.reverse().toString().split("\\\\")[0]).reverse());
-                                                        cliente.getOos().writeObject(Msg.CODIGO);
-                                                    }catch(Exception ex){}
-                                                }
-                                            }
-                                        }
-                                    }).start();
-                                }
-                            }catch(IOException | ClassNotFoundException ex){
-                                Cliente client = (Cliente) act.cliente; 
-                                System.out.println("Erro ao tratar o pedido do cliente: "+client.getNome());
-                                System.out.println("Ip: "+client.getCliente().getInetAddress());
-                                ex.printStackTrace();
-                                System.out.println("--------------------------------------------------------------------------------");
-                            }
-                            Actions.remove(0);
-                        }
-                    try{ Thread.sleep(500);}catch(Exception ex){}
-                    }
-                }            
-        }).start();
+    private void sendAll(String msg) throws IOException{
+        for(Cliente client:Clientes){
+            client.getOos().writeObject("enviando mensagem");
+            client.getOos().writeObject(msg.toString());
+        }
     }
     
     public static String recieveFile(ObjectInputStream ois){
@@ -213,22 +177,29 @@ public class Servidor{
             path.append(new File(".").getCanonicalPath()).append("\\files\\").append( (String) ois.readObject());
             File file = new File(path.toString());
             for(int i=1; file.exists(); i++){
-                if(i==1) path.append("_(").append(i).append(')');
-                else path.reverse().replace(0, (i/10)+1, "("+i).reverse();
+                String ext = new StringBuilder(path.reverse().toString().split("\\\\")[0]).reverse().toString().split("\\.")[1];
+                path.delete(0, ext.length()+1);
+                if(i==1) path.reverse().append(" (").append(i).append(')');
+                else path.replace(0, (i/10)+2, ")"+i).reverse();
+                path.append('.').append(ext);
                 file = new File(path.toString());
             }
+            file.getParentFile().mkdirs();
+            file.createNewFile();
             BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file));
             int count;
             byte[] buffer = new byte[2048];
-            while((count = ois.read(buffer))>0) bos.write(buffer, 0, count);
+            while((count = ois.read(buffer))>0) {
+                bos.write(buffer, 0, count);
+            }
             bos.flush();
             bos.close();
-        }catch(IOException | ClassNotFoundException ex){}
+        }catch(IOException | ClassNotFoundException ex){ex.printStackTrace();}
         return path.toString();
     }
     
     public static void SendFile(File file, ObjectOutputStream oos) throws IOException{
-        oos.writeObject(file.getCanonicalPath().replace(new File(".").getCanonicalPath(), ""));
+//        oos.writeObject(file.getCanonicalPath().replace(new File(".").getCanonicalPath(), ""));
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
         int count;
         byte[] buffer = new byte[2048];
@@ -236,7 +207,6 @@ public class Servidor{
             oos.write(buffer, 0, count);
         }
         bis.close();
-        oos.flush();
         oos.close();
     }
     

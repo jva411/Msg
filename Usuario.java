@@ -56,7 +56,6 @@ public class Usuario {
                             if(a0.equals("sair")){
                                 try{
                                     Oos.writeObject("saindo do servidor");
-                                    Ois.readObject();
                                     Oos.close();
                                     Ois.close();
                                     User.close();
@@ -74,7 +73,7 @@ public class Usuario {
                                     StringBuilder path = new StringBuilder(new File(".").getCanonicalPath()), path2 = new StringBuilder();
                                     path2.append(args[1]);
                                     for(int i=2; i<args.length; i++) path2.append(' ').append(args[i]);
-                                    path.append(path2);
+                                    path.append('\\').append(path2);
                                     File file = new File(path.toString());
                                     if(file.exists()){
                                         Oos.writeObject("enviando arquivo");
@@ -83,10 +82,14 @@ public class Usuario {
                                             @Override
                                             public void run(){
                                                 try{
-                                                    while(!OkFile);
-                                                    OkFile = false;
-                                                    for(int i=1; i<101; i++){
-                                                        Socket user = new Socket(User.getInetAddress(), User.getPort()+i);
+                                                    int port = -1;
+                                                    try{
+                                                        port = Ois.readInt();
+                                                    }catch(Exception ex){
+                                                        ex.printStackTrace();
+                                                    }
+                                                    if(port != -1){
+                                                        Socket user = new Socket(User.getInetAddress().getHostAddress(), port);
                                                         try{
                                                             ObjectOutputStream oos = new ObjectOutputStream(user.getOutputStream());
                                                             StringBuilder sb = new StringBuilder(path2.reverse().toString().split("\\\\")[0]);
@@ -95,9 +98,10 @@ public class Usuario {
                                                             oos.writeObject(path2.toString().replaceAll("\\.+\\\\", ""));
                                                             Servidor.SendFile(file, oos);
                                                             user.close();
-                                                        }catch(Exception ex){}
-                                                        break;
-                                                    }
+                                                        }catch(Exception ex){
+                                                            ex.printStackTrace();
+                                                        }
+                                                    }else System.out.println("* Erro ao tentar enviar arquivo! *");
                                                 }catch(IOException ex){}
                                             }
                                             
@@ -110,22 +114,7 @@ public class Usuario {
                             }
                         }else if(str.length()>0){
                             Oos.writeObject("enviando mensagem");
-                            final String msg = str;
-                            new Thread(new Runnable(){
-                                
-                                final String MSG = msg;
-                                
-                                @Override
-                                public void run(){
-                                    try{
-                                        while(!OkMsg);
-                                        Oos.writeObject(MSG);
-                                        Oos.writeObject(Msg.CODIGO);
-                                        OkMsg = false;
-                                    }catch(Exception ex){}
-                                }
-                                
-                            }).start();
+                            Oos.writeObject(str);
                         }
                     }catch(IOException ex){
                         System.out.println("Erro ao tentar ler o console:");
@@ -150,18 +139,10 @@ public class Usuario {
                             obj = Ois.readObject();
                         }while(!(obj instanceof String));
                         String str = (String)obj;
-                        if(str.equals("envie a mensagem")) {
-                            OkMsg = true;
-                            while(OkMsg);
-                        }
-                        else if(str.equals("envie o arquivo")) OkFile = true;
-                        else if(str.equals("enviando mensagem")){
+                        System.out.println(str);
+                        if(str.equals("enviando mensagem")){
                             StringBuilder sb = new StringBuilder();
-                            str = (String)Ois.readObject();
-                            while(!str.equals(Msg.CODIGO)) {
-                                sb.append(str);
-                                str = (String)Ois.readObject();
-                            }
+                            sb.append(Ois.readObject());
                             System.out.println(sb);
                         }else if(str.equals("enviando arquivo")){
                             for(int i=1; i<101; i++){

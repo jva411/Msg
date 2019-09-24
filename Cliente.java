@@ -21,12 +21,14 @@ public class Cliente {
             this.Oos = new ObjectOutputStream(cliente.getOutputStream());
             try{
                 this.Nome = (String) this.Ois.readObject();
+                this.Oos.flush();
                 boolean teste = true;
                 while(teste){
                     teste = false;
                     for(String nome:nomes) {
                         if(nome.equalsIgnoreCase(this.Nome)){
                             this.Oos.writeObject("outro");
+                            this.Oos.flush();
                             this.Nome = (String) this.Ois.readObject();
                             teste = true;
                             break;
