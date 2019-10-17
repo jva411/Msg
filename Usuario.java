@@ -139,7 +139,6 @@ public class Usuario {
                             obj = Ois.readObject();
                         }while(!(obj instanceof String));
                         String str = (String)obj;
-                        System.out.println(str);
                         if(str.equals("enviando mensagem")){
                             StringBuilder sb = new StringBuilder();
                             sb.append(Ois.readObject());
